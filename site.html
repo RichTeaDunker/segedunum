@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hadrian's Wall — Stand on the Site (native 1 m LiDAR)</title>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<style>
+  :root{ --bg:#15100c; --panel:#1d160f; --ink:#efe6d8; --muted:#b6a890; --accent:#8c2f22; --accent2:#c98b5a;
+    --line:#3a2e22; --gold:#c9a24a; --serif:'Libre Baskerville',Georgia,serif; --sans:'Helvetica Neue',Arial,sans-serif; }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--sans);overflow:hidden}
+  #app{display:flex;flex-direction:column;height:100vh}
+  header{padding:12px 18px;border-bottom:1px solid var(--line);z-index:6;
+    background:linear-gradient(180deg,#221913,#15100c);display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  header .brand{font-family:var(--serif);font-size:19px;color:#f6ecdd}
+  header .brand small{display:block;font-family:var(--sans);font-size:10px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--accent2);margin-top:3px}
+  .tabs{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+  .tab{font-family:var(--sans);font-size:12px;letter-spacing:.04em;color:var(--muted);background:transparent;
+    border:1px solid var(--line);padding:8px 16px;border-radius:5px;cursor:pointer;text-decoration:none;transition:.15s}
+  .tab:hover{color:var(--ink);border-color:#5a4733}
+  .tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  main{flex:1;position:relative}
+  #stage{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;background:#0d0b09}
+  .infocard{position:absolute;top:14px;left:14px;z-index:5;background:rgba(25,18,12,.93);border:1px solid var(--line);
+    border-radius:8px;padding:12px 15px;max-width:340px;backdrop-filter:blur(4px)}
+  .infocard .pick{width:100%;font-family:var(--serif);font-size:15px;color:#f6ecdd;background:#241a12;border:1px solid var(--line);
+    border-radius:6px;padding:8px 10px;margin-bottom:9px;cursor:pointer}
+  .infocard h2{margin:0;font-family:var(--serif);font-size:17px;color:#f6ecdd}
+  .infocard .mod{font-size:10.5px;color:var(--accent2);text-transform:uppercase;letter-spacing:.07em;margin:2px 0 7px}
+  .infocard p{margin:5px 0 0;font-size:11.5px;color:var(--muted);line-height:1.5}
+  .infocard .stat{display:flex;gap:7px;flex-wrap:wrap;margin:8px 0 2px}
+  .infocard .chip{font-size:10px;color:#e7d8bf;background:rgba(201,162,74,.13);border:1px solid rgba(201,162,74,.4);
+    border-radius:20px;padding:3px 9px;letter-spacing:.02em}
+  .infocard .hint{margin-top:8px;font-size:10px;color:#9c8e78;line-height:1.45}
+  .ctl{margin-top:10px;display:flex;align-items:center;gap:9px;font-size:11px;color:var(--muted)}
+  .ctl input[type=range]{flex:1;accent-color:var(--gold)}
+  .ctl button{font-family:var(--sans);font-size:10.5px;color:var(--muted);background:#241a12;border:1px solid var(--line);
+    border-radius:5px;padding:5px 9px;cursor:pointer}
+  .toggles{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:9px;font-size:11px;color:var(--muted)}
+  .toggles label{display:flex;align-items:center;gap:5px;cursor:pointer}
+  .toggles input{accent-color:var(--gold)}
+  .seg{font-family:var(--sans);font-size:10.5px;color:var(--muted);background:#241a12;border:1px solid var(--line);
+    border-radius:5px;padding:4px 11px;cursor:pointer;margin-left:2px}
+  .seg.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .legend{position:absolute;top:14px;right:14px;z-index:5;background:rgba(25,18,12,.9);border:1px solid var(--line);
+    border-radius:8px;padding:11px 13px;font-size:11px;width:200px}
+  .legend h4{margin:0 0 8px;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--accent2)}
+  .legend .row{display:flex;align-items:center;gap:8px;padding:3px 0}
+  .legend .sw{width:13px;height:13px;border-radius:3px;flex:none;border:1.5px solid #1a130d}
+  .legend .sw.dot{border-radius:50%}
+  .legend .ln{width:18px;height:3px;background:var(--gold);flex:none}
+  .legend .note{margin-top:9px;border-top:1px solid var(--line);padding-top:7px;color:var(--muted);font-size:9.5px;line-height:1.45}
+  .popup{position:absolute;z-index:7;min-width:210px;max-width:300px;background:rgba(28,20,13,.96);border:1px solid #4a3826;
+    border-radius:8px;padding:12px 14px;display:none;box-shadow:0 8px 28px rgba(0,0,0,.55)}
+  .popup h3{margin:0 0 2px;font-family:var(--serif);font-size:15px;color:#f6ecdd}
+  .popup .mod{font-size:10.5px;color:var(--accent2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
+  .popup .row{font-size:11px;margin:3px 0;color:#ded2bf}
+  .popup .row b{color:var(--muted)}
+  .popup .x{position:absolute;top:7px;right:10px;cursor:pointer;color:var(--muted);font-size:15px}
+  .loading{position:absolute;inset:0;z-index:8;display:flex;align-items:center;justify-content:center;
+    background:#0d0b09;color:var(--accent2);font-family:var(--serif);font-style:italic;font-size:14px}
+  /* heading-strip compass — replicated from the Ad Gefrin testflight */
+  #compass-hud{position:absolute;top:64px;left:50%;transform:translateX(-50%);z-index:6;
+    width:min(560px,calc(100vw - 420px));min-width:360px;height:56px;
+    background:linear-gradient(180deg,rgba(15,21,32,.94) 0%,rgba(15,21,32,.86) 100%);
+    border:1px solid rgba(255,209,102,.42);border-radius:6px;pointer-events:none;overflow:hidden;box-shadow:0 3px 14px rgba(0,0,0,.45)}
+  #compass-hud .strip-clip{position:absolute;top:0;left:0;right:0;height:34px;overflow:hidden}
+  #compass-hud .strip{position:absolute;top:0;left:0;height:34px;display:block}
+  #compass-hud .lubber{position:absolute;left:50%;top:0;transform:translateX(-50%);width:0;height:0;
+    border-left:6px solid transparent;border-right:6px solid transparent;border-top:9px solid #ffd166;pointer-events:none;z-index:2}
+  #compass-hud .readout{position:absolute;bottom:0;left:0;right:0;height:22px;text-align:center;color:#ffd166;
+    font:700 13px "SF Mono",Menlo,monospace;letter-spacing:1px;line-height:22px;background:rgba(0,0,0,.32)}
+  #compass-hud .readout .card{color:#fff3b8;font-size:11px;margin-left:6px;opacity:.88}
+  #compass-hud .strip .tick-major{stroke:#ffd166;stroke-width:1.1}
+  #compass-hud .strip .tick-minor{stroke:rgba(255,209,102,.55);stroke-width:.8}
+  #compass-hud .strip .tick-N{stroke:#ff5050;stroke-width:1.6}
+  #compass-hud .strip .lbl-card{fill:#ffd166;font:700 12px -apple-system,system-ui,sans-serif;text-anchor:middle}
+  #compass-hud .strip .lbl-N{fill:#ff5050;font:800 13px -apple-system,system-ui,sans-serif;text-anchor:middle}
+  #compass-hud .strip .lbl-half{fill:rgba(255,209,102,.78);font:600 9.5px -apple-system,system-ui,sans-serif;text-anchor:middle}
+  @media(max-width:820px){ #compass-hud{top:58px;width:calc(100vw - 20px);min-width:0} }
+  footer{padding:7px 18px;border-top:1px solid var(--line);font-size:10px;color:var(--muted);background:#15100c;line-height:1.5}
+  footer b{color:var(--accent2)}
+  @media(max-width:760px){ .legend{display:none} .infocard{max-width:none;left:10px;right:10px} }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">Hadrian's Wall<small>Interactive · prototype</small></div>
+    <div class="tabs">
+      <a class="tab" href="index.html#map">▦&nbsp; Wall Map</a>
+      <a class="tab" href="terrain.html">⛰&nbsp; 3D Landscape</a>
+      <a class="tab active" href="site.html">◉&nbsp; Stand on the Site</a>
+    </div>
+  </header>
+  <main>
+    <canvas id="stage"></canvas>
+    <div id="compass-hud" aria-hidden="true">
+      <div class="strip-clip"><svg class="strip" id="compass-strip" width="2880" height="34"></svg></div>
+      <div class="lubber"></div>
+      <div class="readout"><span class="deg" id="compass-deg">000°</span><span class="card" id="compass-card">N</span></div>
+    </div>
+    <div class="infocard">
+      <select class="pick" id="sitepick"></select>
+      <h2 id="s-roman">—</h2>
+      <div class="mod" id="s-mod"></div>
+      <div class="stat" id="s-stat"></div>
+      <p id="s-desc"></p>
+      <div class="toggles">
+        <label><input type="checkbox" id="t-fort" checked> Fort footprint</label>
+        <label><input type="checkbox" id="t-wall" checked> Wall line</label>
+        <label><input type="checkbox" id="t-build"> Modern buildings</label>
+        <label><input type="checkbox" id="t-recon" checked> Roman fort</label>
+        <label><input type="checkbox" id="t-extra" checked> Outside life</label>
+      </div>
+      <div class="toggles" id="drapectl" style="display:none">Surface: <span id="drapebtns"></span></div>
+      <div class="ctl">Relief ×<span id="hval">1.0</span>
+        <input id="hscale" type="range" min="0.8" max="1.2" step="0.05" value="1">
+        <button id="reset">Reset view</button>
+      </div>
+      <div class="hint" id="s-hint"></div>
+    </div>
+    <div class="legend" id="legend"></div>
+    <div class="popup" id="popup"></div>
+    <div class="loading" id="loading">Loading native 1 m LiDAR…</div>
+  </main>
+  <footer>
+    Terrain: <b id="resnote">native 1 m</b> Environment Agency LiDAR DTM — <b>no downsampling</b>. Fort footprint &amp; Wall line:
+    <b>WallGIS</b> © Newcastle University, CC-BY 4.0. <span id="attrib"></span> Relief vertically exaggerated for legibility.
+  </footer>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
+
+const canvas=document.getElementById('stage'), loadingEl=document.getElementById('loading');
+const popup=document.getElementById('popup');
+let scene,camera,renderer,controls,terrainGroup,terrainMesh,meta,heights,texture;
+let flyT=null;
+let worldWidth=1800,worldDepth=1000,baseHeight=0,verticalScale=1,heightScale=1,stride=1;
+let curtainData=null, site=null, fortGroup=null, wallGroup=null, hemiLight=null, sunLight=null, drapeKind='hillshade', fortOutlines={}, buildingsData=null, buildingGroup=null, fortReconGroup=null, extraGroup=null, fortFrame=null, pickFeats=[];
+const markers=[];
+const EXAG_BASE=1.5;   // relief at slider 1.0 ≈ EXAG_BASE × true; slider nudges around it
+const CAT={'Wall fort':0xc9a24a,'Supply fort (off-Wall)':0xd2691e,'Stanegate / town (off-Wall)':0x6fa8c7,
+  'Outpost (north of Wall)':0xb05a8f,'Cumbrian coast defence':0x5fae8c};
+const DRAPES={   // surface options; maps want more relief light, the photo wants less (it carries its own shading)
+  'aerial':    {file:'aerial-drape.png',    label:'Aerial',   attr:'Aerial: <b>Esri World Imagery</b> (Esri, Maxar, Earthstar Geographics).', hemi:1.25, sun:1.05},
+  'topo':      {file:'topo-drape.png',      label:'Topo',     attr:'Topographic map: <b>OpenTopoMap</b> (CC-BY-SA) · OpenStreetMap · SRTM.', hemi:1.7, sun:1.7},
+  'os-hist':   {file:'os-hist-drape.png',   label:'OS 1900s', attr:'Historic OS: <b>National Library of Scotland</b> via MapTiler.', hemi:1.7, sun:1.7},
+  'os-leisure':{file:'os-leisure-drape.png',label:'OS Leisure',attr:'Map: Contains <b>OS</b> data © Crown copyright &amp; database rights.', hemi:1.7, sun:1.7},
+  'hillshade': {file:'hillshade-1m.png',    label:'Relief',   attr:'', hemi:2.0, sun:2.4},
+};
+
+init().catch(e=>{ console.error(e); loadingEl.textContent='Site failed to load: '+e.message; });
+
+function activeId(){
+  const q=new URLSearchParams(location.search).get('site');
+  const h=(location.hash||'').match(/site=([^&;]+)/i);
+  return (q||(h&&decodeURIComponent(h[1]))||'vercovicium').toLowerCase();
+}
+
+async function init(){
+  const man = await (await fetch('data/sites/manifest.json')).json();
+  // populate picker (west→east reads nicely top→bottom; manifest already sorted east→west)
+  const pick=document.getElementById('sitepick');
+  man.sites.forEach(s=>{ const o=document.createElement('option'); o.value=s.id;
+    o.textContent=`${s.roman}  ·  ${s.modern}`; pick.appendChild(o); });
+  site = man.sites.find(s=>s.id===activeId()) || man.sites.find(s=>s.id==='vercovicium') || man.sites[0];
+  pick.value=site.id;
+  pick.addEventListener('change',()=>{ location.href='site.html?site='+pick.value; });
+
+  meta = { bounds_bng:site.bounds_bng, width:site.width, height:site.height,
+           min_height_m:site.min_height_m, max_height_m:site.max_height_m };
+  heights = new Float32Array(await (await fetch(`data/sites/${site.id}/height-1m-float32.bin`)).arrayBuffer());
+  baseHeight = meta.min_height_m;
+  const realW = meta.bounds_bng[2]-meta.bounds_bng[0], realD = meta.bounds_bng[3]-meta.bounds_bng[1];
+  worldDepth = worldWidth*(realD/realW);
+  verticalScale = worldWidth/realW * EXAG_BASE;   // EXAG_BASE × true scale at slider 1.0
+  stride = Math.max(1, Math.ceil(Math.sqrt((meta.width*meta.height)/4.5e6)));  // native 1m sections are small → mostly stride 1
+  texture = await new THREE.TextureLoader().loadAsync(`data/sites/${site.id}/hillshade-1m.png`);
+  texture.colorSpace=THREE.SRGBColorSpace; texture.anisotropy=8;
+
+  scene=new THREE.Scene(); scene.background=new THREE.Color(0x15100c);
+  scene.fog=new THREE.Fog(0x15100c, worldWidth*1.1, worldWidth*2.8);
+  camera=new THREE.PerspectiveCamera(45, innerW()/innerH(), 0.1, 9000);
+  renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,1.8)); renderer.setSize(innerW(),innerH(),false);
+
+  controls=new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping=true; controls.dampingFactor=0.08;
+  controls.minDistance=30; controls.maxDistance=worldWidth*1.6;
+  controls.maxPolarAngle=Math.PI*0.495;
+  controls.zoomSpeed=0.9; controls.panSpeed=0.9;
+  hemiLight=new THREE.HemisphereLight(0xfff0d0,0x1c211c,2.0); scene.add(hemiLight);
+  sunLight=new THREE.DirectionalLight(0xffe1a8,2.4); sunLight.position.set(-300,520,200); scene.add(sunLight);
+
+  terrainGroup=new THREE.Group(); scene.add(terrainGroup);
+
+  curtainData = await (await fetch('data/terrain/wallgis-curtain-bng.geojson')).json();
+  try { fortOutlines = await (await fetch('data/sites/fort-outlines.json')).json(); } catch(e){ fortOutlines={}; }
+  window._fo=fortOutlines;
+  try { buildingsData = await (await fetch(`data/sites/${site.id}/buildings.json`)).json(); } catch(e){ buildingsData=null; }
+
+  buildTerrain();
+  wallGroup=new THREE.Group(); terrainGroup.add(wallGroup); buildWallLine();
+  fortGroup=new THREE.Group(); terrainGroup.add(fortGroup); buildFortFootprint();
+  buildBuildings();
+  buildReconFort();
+  buildMarker();
+  buildLegend();
+  buildCompassStrip();
+  fillSiteInfo();
+  const avail=buildDrapeControl();
+  await setDrape(avail.includes('aerial')?'aerial':'hillshade');
+  addEvents();
+  loadingEl.remove();
+  homeView(true);
+  animate();
+  window._site={scene,camera,renderer,terrainGroup,THREE,site,controls,toWorld,heightAt};
+}
+const innerW=()=>canvas.parentElement.clientWidth||window.innerWidth;
+const innerH=()=>canvas.parentElement.clientHeight||window.innerHeight;
+
+function toWorld(e,n){ const [x0,y0,x1,y1]=meta.bounds_bng;
+  return { x:((e-x0)/(x1-x0)-0.5)*worldWidth, z:((y1-n)/(y1-y0)-0.5)*worldDepth }; }
+function heightAt(e,n){ const [x0,y0,x1,y1]=meta.bounds_bng;
+  const u=THREE.MathUtils.clamp((e-x0)/(x1-x0),0,1), v=THREE.MathUtils.clamp((y1-n)/(y1-y0),0,1);
+  const ix=Math.round(u*(meta.width-1)), iy=Math.round(v*(meta.height-1));
+  return (heights[iy*meta.width+ix]-baseHeight)*verticalScale*heightScale; }
+const inBounds=(e,n,m=0)=>{ const [x0,y0,x1,y1]=meta.bounds_bng; return e>=x0-m&&e<=x1+m&&n>=y0-m&&n<=y1+m; };
+
+function buildTerrain(){
+  if(terrainMesh){ terrainMesh.geometry.dispose(); terrainGroup.remove(terrainMesh); }
+  const sW=Math.floor((meta.width-1)/stride)+1, sH=Math.floor((meta.height-1)/stride)+1;
+  const geo=new THREE.PlaneGeometry(worldWidth,worldDepth,sW-1,sH-1); geo.rotateX(-Math.PI/2);
+  const pos=geo.attributes.position; const [x0,y0,x1,y1]=meta.bounds_bng; const hx=site.hex;
+  const inHex = hx ? new Uint8Array(sW*sH) : null; let i=0;
+  for(let row=0;row<sH;row++){ const sy=Math.min(row*stride,meta.height-1);
+    for(let col=0;col<sW;col++){ const sx=Math.min(col*stride,meta.width-1);
+      pos.setY(i, (heights[sy*meta.width+sx]-baseHeight)*verticalScale);
+      if(hx){ const e=x0+sx/(meta.width-1)*(x1-x0), n=y1-sy/(meta.height-1)*(y1-y0);
+        const dx=Math.abs(e-hx.cx), dy=Math.abs(n-hx.cy); inHex[i]=(dx<=hx.w/2 && dy<=hx.cr-dx/1.7320508)?1:0; }
+      i++; } }   // baked at relief ×1
+  pos.needsUpdate=true;
+  if(hx){ const src=geo.index.array, keep=[]; for(let t=0;t<src.length;t+=3){ const a=src[t],b=src[t+1],c=src[t+2]; if(inHex[a]&&inHex[b]&&inHex[c]) keep.push(a,b,c); } geo.setIndex(keep); }   // trim to the hexagon
+  geo.computeVertexNormals();
+  terrainMesh=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({map:texture,roughness:0.95,metalness:0}));
+  terrainMesh.scale.y=heightScale;
+  terrainGroup.add(terrainMesh);
+}
+
+// drape a BNG polyline on the terrain, sampling every ~stepM metres so it follows the ground
+function drapePoints(coords,lift,stepM=4){
+  const out=[];
+  for(let i=1;i<coords.length;i++){
+    const [e0,n0]=coords[i-1], [e1,n1]=coords[i];
+    const d=Math.hypot(e1-e0,n1-n0), steps=Math.max(1,Math.round(d/stepM));
+    for(let s=(i===1?0:1);s<=steps;s++){ const t=s/steps, e=e0+(e1-e0)*t, n=n0+(n1-n0)*t;
+      const {x,z}=toWorld(e,n); out.push(new THREE.Vector3(x, heightAt(e,n)+lift, z)); }
+  }
+  return out;
+}
+function buildWallLine(){
+  const mat=new THREE.LineBasicMaterial({color:0xf1c76b});
+  for(const f of curtainData.features){ const g=f.geometry;
+    const pieces=g.type==='LineString'?[g.coordinates]:g.coordinates;
+    for(const coords of pieces){
+      const clipped=coords.filter(c=>inBounds(c[0],c[1],120));
+      if(clipped.length<2) continue;
+      wallGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(drapePoints(clipped,2.5)), mat.clone()));
+    } }
+}
+
+// the fort's real metre footprint, oriented to the local Wall bearing, draped on the ground
+function localWallBearing(fe,fn){
+  let best=null,bd=1e18;
+  for(const f of curtainData.features){ const g=f.geometry;
+    const pieces=g.type==='LineString'?[g.coordinates]:g.coordinates;
+    for(const coords of pieces) for(let i=1;i<coords.length;i++){
+      const mx=(coords[i-1][0]+coords[i][0])/2, my=(coords[i-1][1]+coords[i][1])/2;
+      const dd=(mx-fe)**2+(my-fn)**2;
+      if(dd<bd){ bd=dd; best=[coords[i-1],coords[i]]; } } }
+  if(!best) return {ux:1,uy:0};   // default E–W
+  const de=best[1][0]-best[0][0], dn=best[1][1]-best[0][1], L=Math.hypot(de,dn)||1;
+  return {ux:de/L, uy:dn/L};
+}
+function buildFortFootprint(){
+  fortGroup.clear();
+  // prefer the REAL fort outline (OSM polygon: true position + orientation + shape) over the wall-bearing box
+  const outline = fortOutlines[site.id];
+  if(outline && outline.pts && outline.pts.length>3 && (outline.centroid_off_m||999) < 80){  // only trust a close-matching real polygon
+    const ring = outline.pts.slice();
+    if(ring[0][0]!==ring[ring.length-1][0] || ring[0][1]!==ring[ring.length-1][1]) ring.push(ring[0]);
+    fortGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(drapePoints(ring,2.0,3)), new THREE.LineBasicMaterial({color:0xff6a3c})));
+    let cx=0,cy=0; ring.forEach(p=>{cx+=p[0];cy+=p[1];}); cx/=ring.length; cy/=ring.length;
+    const {x,z}=toWorld(cx,cy), y=heightAt(cx,cy);
+    const lbl = (site.dim_a&&site.dim_b) ? `${Math.round(site.dim_b)}×${Math.round(site.dim_a)} m` : (outline.name||site.modern);
+    fortGroup.add(textSprite(lbl, x, y+22, z, 42, '#ffd2b0'));
+    return;
+  }
+  if(!site.dim_a||!site.dim_b) return;
+  const fe=site.fort_e, fn=site.fort_n;
+  const long=Math.max(site.dim_a,site.dim_b)/2, shortS=Math.min(site.dim_a,site.dim_b)/2;
+  const {ux,uy}=localWallBearing(fe,fn);        // long axis along the Wall
+  const px=-uy, py=ux;                           // perpendicular (short axis)
+  const corner=(a,b)=>[fe+ux*a+px*b, fn+uy*a+py*b];
+  const ring=[corner(-long,-shortS),corner(long,-shortS),corner(long,shortS),corner(-long,shortS),corner(-long,-shortS)];
+  // playing-card outline, draped, glowing
+  const pts=drapePoints(ring,2.0,3);
+  const mat=new THREE.LineBasicMaterial({color:0xff6a3c});
+  fortGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),mat));
+  // translucent rampart band: a second slightly-inset ring + faint posts at the corners
+  const post=new THREE.MeshBasicMaterial({color:0xff7a44});
+  [[-long,-shortS],[long,-shortS],[long,shortS],[-long,shortS]].forEach(([a,b])=>{
+    const [e,n]=corner(a,b); const {x,z}=toWorld(e,n); const y=heightAt(e,n);
+    const m=new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.1,9,7),post); m.position.set(x,y+4.5,z); fortGroup.add(m);
+  });
+  // label hovering over the centre
+  const {x,z}=toWorld(fe,fn); const y=heightAt(fe,fn);
+  fortGroup.add(textSprite(`${Math.round(site.dim_b)}×${Math.round(site.dim_a)} m`, x, y+22, z, 42, '#ffd2b0'));
+}
+
+function buildBuildings(){
+  if(buildingGroup){ buildingGroup.traverse(o=>{if(o.geometry)o.geometry.dispose();}); terrainGroup.remove(buildingGroup); buildingGroup=null; }
+  if(!buildingsData || !(buildingsData.buildings||[]).length) return;
+  const WALLS=[0x9c6450,0xb98e6b,0xb3a594,0xc7b393,0x8a6552,0xa39584,0xc2aa7e];  // brick / sandstone / render
+  const roofs=[0x53565b,0x474a4f,0x60646c,0x6b5a4a];                              // slate greys + a brick-tile
+  const geos=[];
+  buildingsData.buildings.forEach((b,bi)=>{
+    if(!b.pts || b.pts.length<3) return;
+    const shape=new THREE.Shape();
+    b.pts.forEach((p,idx)=>{ const wp=toWorld(p[0],p[1]); idx===0?shape.moveTo(wp.x,-wp.z):shape.lineTo(wp.x,-wp.z); });
+    const geo=new THREE.ExtrudeGeometry(shape,{depth:Math.max(2,b.height)*verticalScale, bevelEnabled:false});  // baked at relief ×1
+    geo.rotateX(-Math.PI/2); geo.translate(0,(b.base-baseHeight)*verticalScale,0);
+    // vertex colours — varied walls, darker roof on up-facing caps
+    const wall=new THREE.Color(WALLS[(bi*7)%WALLS.length]), roof=new THREE.Color(roofs[(bi*5)%roofs.length]);
+    const pos=geo.attributes.position, nrm=geo.attributes.normal, col=new Float32Array(pos.count*3);
+    for(let i=0;i<pos.count;i++){ const c = nrm.getY(i)>0.6 ? roof : wall; col[i*3]=c.r; col[i*3+1]=c.g; col[i*3+2]=c.b; }
+    geo.setAttribute('color', new THREE.BufferAttribute(col,3));
+    geos.push(geo);
+  });
+  if(!geos.length) return;
+  const merged=mergeGeometries(geos,false); geos.forEach(g=>g.dispose());
+  const mat=new THREE.MeshStandardMaterial({vertexColors:true, roughness:0.9, metalness:0, flatShading:true, side:THREE.DoubleSide});
+  buildingGroup=new THREE.Group(); buildingGroup.add(new THREE.Mesh(merged,mat));
+  buildingGroup.scale.y=heightScale;   // tracks the relief slider with the terrain
+  const t=document.getElementById('t-build'); buildingGroup.visible = t? t.checked : true;
+  terrainGroup.add(buildingGroup);
+}
+function buildReconFort(){
+  if(fortReconGroup){ fortReconGroup.traverse(o=>{if(o.geometry)o.geometry.dispose();}); terrainGroup.remove(fortReconGroup); fortReconGroup=null; }
+  if(!site.dim_a || !site.dim_b) return;
+  const fe=site.fort_e, fn=site.fort_n, ol=fortOutlines[site.id];
+  // orientation + centre from the MIN-AREA bounding rectangle of the real outline (stable even for near-square forts)
+  let u=[1,0], v=[0,1], cx=fe, cy=fn;
+  if(ol && ol.pts && ol.pts.length>3){
+    const pts=ol.pts; let best=null, bestA=Infinity;
+    for(let i=0;i<pts.length;i++){ const j=(i+1)%pts.length;
+      const ex=pts[j][0]-pts[i][0], ey=pts[j][1]-pts[i][1], len=Math.hypot(ex,ey); if(len<0.5) continue;
+      const ax=ex/len, ay=ey/len; let mnu=1e18,mxu=-1e18,mnv=1e18,mxv=-1e18;
+      for(const p of pts){ const du=p[0]*ax+p[1]*ay, dv=-p[0]*ay+p[1]*ax; if(du<mnu)mnu=du; if(du>mxu)mxu=du; if(dv<mnv)mnv=dv; if(dv>mxv)mxv=dv; }
+      const area=(mxu-mnu)*(mxv-mnv); if(area<bestA){ bestA=area; best={ax,ay,wu:mxu-mnu,wv:mxv-mnv,cu:(mnu+mxu)/2,cv:(mnv+mxv)/2}; } }
+    if(best){
+      if(best.wu>=best.wv){ u=[best.ax,best.ay]; v=[-best.ay,best.ax]; } else { u=[-best.ay,best.ax]; v=[best.ax,best.ay]; }
+      cx=best.cu*best.ax - best.cv*best.ay; cy=best.cu*best.ay + best.cv*best.ax;   // box centre back to BNG
+    }
+  }
+  if(u[1]<0){ u=[-u[0],-u[1]]; v=[-v[0],-v[1]]; }   // +a points north → praetentura / porta praetoria
+  const L=Math.max(site.dim_a,site.dim_b)/2, S=Math.min(site.dim_a,site.dim_b)/2;
+  const gY=heightAt(cx,cy)/heightScale, vS=verticalScale;   // bake at relief ×1; group scale re-applies heightScale
+  const bng=(a,b)=>[cx+u[0]*a+v[0]*b, cy+u[1]*a+v[1]*b];
+  // Museum-model palette: cream rendered walls, red-tiled roofs, buff stone defences (cf. Segedunum Roman Gallery model)
+  const CREAM=new THREE.Color(0xe7dcc2), RED=new THREE.Color(0xae5436), STONE=new THREE.Color(0xd4c7a2);
+  const geos=[];
+  function pushGeo(g,c){ const n=g.attributes.position.count,col=new Float32Array(n*3); for(let i=0;i<n;i++){col[i*3]=c.r;col[i*3+1]=c.g;col[i*3+2]=c.b;} g.setAttribute('color',new THREE.BufferAttribute(col,3)); geos.push(g); }
+  function boxG(a0,a1,b0,b1,h0,h1,c){ const sh=new THREE.Shape();
+    [[a0,b0],[a1,b0],[a1,b1],[a0,b1]].forEach((p,i)=>{ const q=bng(p[0],p[1]),w=toWorld(q[0],q[1]); i===0?sh.moveTo(w.x,-w.z):sh.lineTo(w.x,-w.z); });
+    const g=new THREE.ExtrudeGeometry(sh,{depth:(h1-h0)*vS,bevelEnabled:false}); g.rotateX(-Math.PI/2); g.translate(0,gY+h0*vS,0); g.deleteAttribute('uv'); g.deleteAttribute('normal'); pushGeo(g,c||CREAM); }   // flatShading computes normals; strip so all geos share {position,color} for merge
+  const WP=(a,b)=>{ const q=bng(a,b),w=toWorld(q[0],q[1]); return new THREE.Vector3(w.x,0,w.z); };
+  function gableRoof(a0,a1,b0,b1,eaveH,roofH){   // red pitched roof, ridge along the longer side; cream gable ends
+    const alongA=Math.abs(a1-a0)>=Math.abs(b1-b0), eY=gY+eaveH*vS, rY=gY+(eaveH+roofH)*vS, sy=(v,y)=>new THREE.Vector3(v.x,y,v.z);
+    const c00=WP(a0,b0),c10=WP(a1,b0),c11=WP(a1,b1),c01=WP(a0,b1); let sl,gb;
+    if(alongA){ const bm=(b0+b1)/2,r0=WP(a0,bm),r1=WP(a1,bm);
+      sl=[[sy(c00,eY),sy(c10,eY),sy(r1,rY),sy(r0,rY)],[sy(c11,eY),sy(c01,eY),sy(r0,rY),sy(r1,rY)]]; gb=[[sy(c00,eY),sy(r0,rY),sy(c01,eY)],[sy(c11,eY),sy(r1,rY),sy(c10,eY)]]; }
+    else { const am=(a0+a1)/2,r0=WP(am,b0),r1=WP(am,b1);
+      sl=[[sy(c10,eY),sy(c11,eY),sy(r1,rY),sy(r0,rY)],[sy(c01,eY),sy(c00,eY),sy(r0,rY),sy(r1,rY)]]; gb=[[sy(c10,eY),sy(r0,rY),sy(c00,eY)],[sy(c01,eY),sy(r1,rY),sy(c11,eY)]]; }
+    const rp=[]; sl.forEach(q=>[q[0],q[1],q[2],q[0],q[2],q[3]].forEach(v=>rp.push(v.x,v.y,v.z)));
+    const rg=new THREE.BufferGeometry(); rg.setAttribute('position',new THREE.Float32BufferAttribute(rp,3)); pushGeo(rg,RED);
+    const gp=[]; gb.forEach(tr=>tr.forEach(v=>gp.push(v.x,v.y,v.z)));
+    const gg=new THREE.BufferGeometry(); gg.setAttribute('position',new THREE.Float32BufferAttribute(gp,3)); pushGeo(gg,CREAM); }
+  function building(a0,a1,b0,b1,eaveH,roofH){ boxG(a0,a1,b0,b1,0,eaveH,CREAM); if(roofH>0) gableRoof(a0,a1,b0,b1,eaveH,roofH); }
+  function court(a0,a1,b0,b1,eaveH,roofH,thk){ thk=thk||7;   // four roofed ranges round an open courtyard
+    building(a1-thk,a1,b0,b1,eaveH,roofH); building(a0,a0+thk,b0,b1,eaveH,roofH);
+    building(a0+thk,a1-thk,b0,b0+thk,eaveH,roofH); building(a0+thk,a1-thk,b1-thk,b1,eaveH,roofH); }
+  function merlonLine(a0,b0,a1,b1,topH){ const len=Math.hypot(a1-a0,b1-b0),n=Math.max(2,Math.round(len/3.2)),m=1.0,mh=1.1;
+    for(let i=0;i<n;i++){ if(i%2) continue; const tt=(i+0.5)/n,aa=a0+(a1-a0)*tt,bb=b0+(b1-b0)*tt; boxG(aa-m/2,aa+m/2,bb-m/2,bb+m/2,topH,topH+mh,STONE); } }
+  function tower(ca,cb,half,h){ boxG(ca-half,ca+half,cb-half,cb+half,0,h,STONE);   // buff stone tower + crenellated top
+    merlonLine(ca-half,cb-half,ca+half,cb-half,h); merlonLine(ca+half,cb-half,ca+half,cb+half,h); merlonLine(ca+half,cb+half,ca-half,cb+half,h); merlonLine(ca-half,cb+half,ca-half,cb-half,h); }
+  const E=(v[0]>=0)?1:-1, t=3.0, gw=9, wh=4.6, gc=14;   // +b=east; gc = via principalis (side gates sit N of fort centre, per the plan)
+  // RAMPART — cream curtain wall with battlements; side (principalis) gates at the via principalis, N/S gates mid-wall
+  [S,-S].forEach(b=>{ const b0=b>0?b-t:b, b1=b>0?b:b+t, bm=(b0+b1)/2;
+    boxG(-L,gc-gw/2,b0,b1,0,wh,CREAM); boxG(gc+gw/2,L,b0,b1,0,wh,CREAM); merlonLine(-L,bm,gc-gw/2,bm,wh); merlonLine(gc+gw/2,bm,L,bm,wh); });
+  [L,-L].forEach(a=>{ const a0=a>0?a-t:a, a1=a>0?a:a+t, am=(a0+a1)/2;
+    boxG(a0,a1,-S,-gw/2,0,wh,CREAM); boxG(a0,a1,gw/2,S,0,wh,CREAM); merlonLine(am,-S,am,-gw/2,wh); merlonLine(am,gw/2,am,S,wh); });
+  [[L,S],[L,-S],[-L,S],[-L,-S]].forEach(([a,b])=> tower(a,b,3.6,8));                                 // corner towers
+  [[gc,S,1,0],[gc,-S,1,0],[L,0,0,1],[-L,0,0,1]].forEach(([a,b,da,db])=>{ const off=gw/2+3.2;          // 4 principal gates: twin tall towers (side gates at via principalis)
+    tower(a+da*off,b+db*off,3.2,10.5); tower(a-da*off,b-db*off,3.2,10.5); });
+  [S,-S].forEach(b=> [44,-32].forEach(a=> tower(a,b,2.8,7)));                                          // interval towers (E/W walls)
+  [L,-L].forEach(a=> [30,-30].forEach(b=> tower(a,b,2.8,7)));                                          // interval towers (N/S walls)
+  { const b=-E*S, aq=-48; tower(aq-5,b,2.4,7.5); tower(aq+5,b,2.4,7.5); }                              // minor west quintan gate (retentura)
+  // === Real Segedunum c.AD200 plan (Rushworth & Croom / North East Museums) — data-driven, each clickable.  rect=[a0,a1,b0,b1]
+  const FEAT=[
+    {label:'Infantry barracks (×6)',ev:'E1/E2',zone:'Praetentura (N)',eave:4,roof:3,sum:'Six ranges for the six centuries of infantry, in three pairs flanking the via praetoria. 8 men per room — sleep & store at the back, cook & eat at the front; centurion’s house at the end.',
+      rects:[[53,61,-52,-9],[53,61,9,52],[42,50,-52,-9],[42,50,9,52],[31,39,-52,-9],[31,39,9,52]]},
+    {label:'Workshops (×2)',ev:'E1/E2',zone:'Praetentura (S edge)',eave:4,roof:2.8,sum:'Two workshop ranges at the rear of the barrack-block — metalworking, leather and repair for the garrison (fabrica activity).',
+      rects:[[19,27,-52,-9],[19,27,9,52]]},
+    {label:'Forehall',ev:'E1/E2',zone:'Front of central range',eave:7.5,roof:3.4,sum:'A tall hall running across the front of the headquarters and granary. Function debated — now thought to be for religious / ceremonial gatherings, not a drill hall.',
+      rects:[[3,8,-42,14]]},
+    {label:'Headquarters / principia',ev:'E1/E2',zone:'Central range',eave:5,roof:3.5,court:true,sum:'Courtyard, great hall and a row of five rooms. Sacrifices in the open court; the central shrine held the standards above an underground strong-room for the soldiers’ pay.',
+      rects:[[-26,1,-14,12]]},
+    {label:'Commanding officer’s house / praetorium',ev:'E1/E2/R',zone:'Central range (E)',eave:5,roof:3,court:true,sum:'The largest building — rooms round a courtyard: dining rooms, kitchens, libraries, bedrooms, baths and stables. Home to the CO, his family and slaves. Upper form reconstructed.',
+      rects:[[-28,1,18,50]]},
+    {label:'Double granary / horreum',ev:'E1/E2',zone:'Central range (W)',eave:4.5,roof:3,sum:'Two granaries joined together, on raised, ventilated sleeper-wall floors — supplies, especially grain, for the garrison.',
+      rects:[[-26,1,-40,-20]]},
+    {label:'Hospital / valetudinarium',ev:'E1/E2',zone:'Central range (far W)',eave:4,roof:2.8,court:true,sum:'Small rooms round a courtyard — operating theatre, wards, latrines and stores, run by the army medical service. A drain from the water tank flushed its latrines.',
+      rects:[[-26,-6,-58,-44]]},
+    {label:'Cistern / water tank',ev:'E1/E2',zone:'W, by the granary',eave:1.6,roof:0,tank:true,sum:'Stone-lined rainwater tank with internal piers; a drain ran south to flush the hospital latrines. Also watered the horses.',
+      rects:[[-14,-7,-44,-40]]},
+    {label:'Cavalry stable-barracks (×4)',ev:'E1/E2',zone:'Retentura (S)',eave:4,roof:3,sum:'Four ranges for the four turmae of cavalry, flanking the via decumana. Horses in the front rooms, three troopers behind, decurion’s house at one end. ~120 cavalry.',
+      rects:[[-44,-36,-52,-9],[-44,-36,9,52],[-58,-50,-52,-9],[-58,-50,9,52]]},
+    {label:'Fort defences & gates',ev:'E1/E2',zone:'Perimeter',eave:0,roof:0,sum:'Battlemented rampart, corner & interval towers, four double-portal gates (porta praetoria N, principalis W/E, decumana S) plus the minor west quintan gate. Hadrian’s Wall meets the west side.',
+      rects:[[-69,69,-60,60]]}
+  ];
+  fortFrame={cx,cy,u:u.slice(),v:v.slice()}; pickFeats=[];
+  FEAT.forEach(f=>{ (f.rects||[]).forEach(R=>{ const a0=Math.min(R[0],R[1]),a1=Math.max(R[0],R[1]),b0=Math.min(R[2],R[3]),b1=Math.max(R[2],R[3]);
+    if(f.eave>0){ if(f.court) court(a0,a1,b0,b1,f.eave,f.roof); else if(f.tank) boxG(a0,a1,b0,b1,0,f.eave,STONE); else building(a0,a1,b0,b1,f.eave,f.roof); }
+    pickFeats.push({a0,a1,b0,b1,label:f.label,ev:f.ev,sum:f.sum,zone:f.zone}); }); });
+  if(!geos.length) return;
+  const merged=mergeGeometries(geos,false); geos.forEach(g=>g.dispose());
+  fortReconGroup=new THREE.Group();
+  fortReconGroup.add(new THREE.Mesh(merged,new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.85,flatShading:true,side:THREE.DoubleSide})));
+  fortReconGroup.scale.y=heightScale;
+  const tb=document.getElementById('t-recon'); fortReconGroup.visible = tb? tb.checked : true;
+  terrainGroup.add(fortReconGroup);
+  if(site.id==='segedunum') buildExtramural(cx,cy,u,v);   // Segedunum-specific "outside life" layer
+}
+// === Extramural "outside life" layer (separate toggle; confidence-coded per CodeX research) ===
+function buildExtramural(cx,cy,u,v){
+  if(extraGroup){ extraGroup.traverse(o=>{if(o.geometry)o.geometry.dispose();}); terrainGroup.remove(extraGroup); extraGroup=null; }
+  extraGroup=new THREE.Group();
+  const vS=verticalScale, E=(v[0]>=0)?1:-1;   // E = +b that increases easting (true east); west = -E
+  const bng=(a,b)=>[cx+u[0]*a+v[0]*b, cy+u[1]*a+v[1]*b];
+  const gAt=(a,b)=>{ const p=bng(a,b); return heightAt(p[0],p[1])/heightScale; };
+  function plot(a,b,wa,wb,hM,col,op){ const sh=new THREE.Shape();
+    [[a-wa/2,b-wb/2],[a+wa/2,b-wb/2],[a+wa/2,b+wb/2],[a-wa/2,b+wb/2]].forEach((c,i)=>{ const p=bng(c[0],c[1]); const w=toWorld(p[0],p[1]); i===0?sh.moveTo(w.x,-w.z):sh.lineTo(w.x,-w.z); });
+    const g=new THREE.ExtrudeGeometry(sh,{depth:hM*vS,bevelEnabled:false}); g.rotateX(-Math.PI/2); g.translate(0,gAt(a,b),0);
+    extraGroup.add(new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:col,roughness:0.92,flatShading:true,transparent:op<1,opacity:op,side:THREE.DoubleSide}))); }
+  function rline(pa,col,op,lift){ const pts=[]; for(let i=1;i<pa.length;i++){ const A=pa[i-1],B=pa[i];
+      for(let s=0;s<=8;s++){ const t=s/8,a=A[0]+(B[0]-A[0])*t,b=A[1]+(B[1]-A[1])*t; const p=bng(a,b); const w=toWorld(p[0],p[1]); pts.push(new THREE.Vector3(w.x,gAt(a,b)+(lift||2),w.z)); } }
+    extraGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:col,transparent:op<1,opacity:op}))); }
+  function lbl(a,b,text,col){ const p=bng(a,b); const w=toWorld(p[0],p[1]); extraGroup.add(textSprite(text,w.x,gAt(a,b)+13,w.z,52,col||'#e7d8bf')); }
+  // BATH-HOUSE ~130 m south of the wall, former Ship Inn area (E1 — solid simplified rooms)
+  const bh=-198, BC=[0xc09a72,0xcbab84,0xb5a48c,0xc6b18d];
+  [-15,0,15,30].forEach((b,i)=> plot(bh, b, 15, 14, 5, BC[i], 0.95));
+  lbl(bh+13,8,'Bath-house','#f2dcbb');
+  // BRANCH WALL: SE corner → Tyne (E1/E2 wall; terminal feature stays Q)
+  rline([[-69,E*52],[-140,E*50],[-228,E*46]],0xe3b462,0.9,3); lbl(-150,E*60,'Branch Wall → Tyne','#e8cd96');
+  // VICUS — rows of ghosted ranges echoing the museum model (settlement attested S & W; exact plan NOT preserved → translucent/representative, not invented)
+  [[-90,-2],[-108,-2],[-126,-2]].forEach(([a,b])=> plot(a,b,9,32,4,0xc6ab86,0.5));           // south rows (E–W ranges)
+  [[-8,-E*108],[16,-E*108],[-8,-E*130],[16,-E*130]].forEach(([a,b])=> plot(a,b,26,8,4,0xc6ab86,0.5));  // west rows (N–S ranges, toward the road)
+  lbl(-118,-2,'Vicus','#dccdb0'); lbl(4,-E*119,'Vicus','#dccdb0');
+  // ROADS — west to Pons Aelius + south-gate movement toward vicus/river (E1/E2)
+  rline([[0,-E*62],[8,-E*150],[2,-E*258]],0xcdbfa0,0.5,2); lbl(6,-E*215,'→ Pons Aelius','#cdbfa0');
+  rline([[-69,0],[-150,4],[-210,2]],0xcdbfa0,0.45,2);
+  // possible markers (Q — labelled, not built as fact)
+  lbl(-44,-E*180,'Ritual finds (possible)','#aab2c2'); lbl(-220,-22,'Cemetery (possible)','#aab2c2');
+  lbl(-150,-E*70,'Pottery kiln (probable)','#aab2c2'); lbl(-262,12,'River landing? (uncertain)','#9aa7bb');
+  // clickable evidence zones for the outside-life layer (broad, since plots are scattered ghosts)
+  const W=(x,y)=>Math.min(x,y), X=(x,y)=>Math.max(x,y);
+  pickFeats.push(
+    {a0:-208,a1:-188,b0:-24,b1:39,label:'Bath-house (external)',ev:'E1',zone:'~130 m south',sum:'Detached military bath-house near the former Ship Inn — frigidarium, tepidarium, caldarium, plunge baths, hypocaust, apses. Only ~half excavated; not the modern reconstruction.'},
+    {a0:-168,a1:-84,b0:-34,b1:34,label:'Vicus (civilian settlement)',ev:'E1/E2',zone:'south & west',sum:'Civilian settlement — families, traders, workshops — attested south and west toward the river. Presence certain; the exact street plan is not preserved.'},
+    {a0:-50,a1:34,b0:W(-E*162,-E*88),b1:X(-E*162,-E*88),label:'Vicus (civilian settlement)',ev:'E1/E2',zone:'south & west',sum:'Settlement spreading west along the road to Pons Aelius. Presence certain; plan lost to time and modern industry.'},
+    {a0:-232,a1:-69,b0:W(E*42,E*56),b1:X(E*42,E*56),label:'Branch Wall to the Tyne',ev:'E1/E2',zone:'SE corner → river',sum:'The terminal Branch Wall ran from the fort’s SE corner down to the Tyne — the literal Wall’s End. Any monument or temple at the river end stays unproven (Q).'}
+  );
+  extraGroup.scale.y=heightScale;
+  const tb=document.getElementById('t-extra'); extraGroup.visible = tb? tb.checked : true;
+  terrainGroup.add(extraGroup);
+}
+function buildDrapeControl(){
+  const avail=[];
+  if(site.aerial) avail.push('aerial');
+  if(site.topo) avail.push('topo');
+  if(site.os_hist) avail.push('os-hist');
+  if(site.os_leisure) avail.push('os-leisure');
+  avail.push('hillshade');
+  const box=document.getElementById('drapebtns'); box.innerHTML='';
+  avail.forEach(k=>{ const b=document.createElement('button'); b.className='seg'; b.dataset.drape=k;
+    b.textContent=DRAPES[k].label; b.addEventListener('click',()=>setDrape(k)); box.appendChild(b); });
+  if(avail.length>1) document.getElementById('drapectl').style.display='flex';
+  return avail;
+}
+async function setDrape(kind){
+  drapeKind=kind; const d=DRAPES[kind];
+  const tex=await new THREE.TextureLoader().loadAsync(`data/sites/${site.id}/${d.file}`);
+  tex.colorSpace=THREE.SRGBColorSpace; tex.anisotropy=8;
+  if(terrainMesh){ if(terrainMesh.material.map) terrainMesh.material.map.dispose(); terrainMesh.material.map=tex; terrainMesh.material.needsUpdate=true; }
+  texture=tex;
+  if(hemiLight) hemiLight.intensity=d.hemi; if(sunLight) sunLight.intensity=d.sun;
+  document.getElementById('attrib').innerHTML=d.attr||'';
+  document.querySelectorAll('[data-drape]').forEach(b=>b.classList.toggle('on', b.dataset.drape===kind));
+}
+function buildMarker(){
+  markers.length=0;
+  const fe=site.fort_e, fn=site.fort_n, {x,z}=toWorld(fe,fn), y=heightAt(fe,fn);
+  const col=CAT[site.cat]||0xc9a24a;
+  const g=new THREE.Group(); g.position.set(x,y,z);
+  const stem=new THREE.Mesh(new THREE.CylinderGeometry(0.7,0.7,16,8),new THREE.MeshBasicMaterial({color:0x2a1d12}));
+  stem.position.y=8; g.add(stem);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(3.2,18,14),new THREE.MeshBasicMaterial({color:col}));
+  head.position.y=18; g.add(head);
+  head.userData=stem.userData={kind:'fort'};
+  terrainGroup.add(g); markers.push(head,stem);
+  terrainGroup.add(textSprite(site.roman||site.modern, x, y+38, z, 90, '#f6ecdd'));
+}
+
+function textSprite(text,x,y,z,size,color){
+  const c=document.createElement('canvas'); c.width=512; c.height=128; const g=c.getContext('2d');
+  g.fillStyle=color||'#f1c76b'; g.font='bold 64px ui-sans-serif,system-ui,sans-serif'; g.textAlign='center'; g.textBaseline='middle';
+  g.fillText(text,256,68);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false}));
+  sp.position.set(x,y,z); sp.scale.set(size,size*0.25,1); return sp;
+}
+
+function buildLegend(){
+  let h='<h4>On the real ground</h4>';
+  h+=`<div class="row"><span class="sw dot" style="background:#${(CAT[site.cat]||0xc9a24a).toString(16).padStart(6,'0')}"></span>Fort centre</div>`;
+  h+=`<div class="row"><span class="sw" style="background:#ff6a3c;border-radius:3px"></span>Fort footprint (real m)</div>`;
+  h+=`<div class="row"><span class="ln"></span>Surveyed Wall line</div>`;
+  h+=`<div class="note">Every bump is real: native 1&nbsp;m Environment Agency LiDAR, no downsampling. Footprint drawn from WallGIS dimensions, long axis along the local Wall bearing — schematic placement.</div>`;
+  if(site.id==='segedunum') h+=`<div class="note" style="border-top:1px solid rgba(255,255,255,.08);margin-top:6px;padding-top:6px">The fort plan is known unusually well; the life around it is real but its exact layout is broken by time, river change and modern industry. Interior follows the c.AD200 plan (Rushworth&nbsp;&amp;&nbsp;Croom / North&nbsp;East&nbsp;Museums); <b>outside-life is confidence-coded</b> — solid = excavated, ghosted = attested-but-unplanned, “(possible)” = inferred.</div>`;
+  document.getElementById('legend').innerHTML=h;
+}
+
+function fillSiteInfo(){
+  document.getElementById('s-roman').textContent=site.roman||site.modern;
+  document.getElementById('s-mod').textContent=`${site.modern} · ${(site.cat||'').replace(' (off-Wall)','').replace(' (north of Wall)','')}`;
+  const stat=document.getElementById('s-stat'); stat.innerHTML='';
+  const chips=[];
+  if(site.dim_a&&site.dim_b) chips.push(`${Math.round(site.dim_b)}×${Math.round(site.dim_a)} m`);
+  if(site.area) chips.push(`${(site.area*0.404686).toFixed(2)} ha · ${site.area} ac`);   // never "4.1 ha" — 4.1 is acres
+  const rng=(site.max_height_m-site.min_height_m); if(rng) chips.push(`${Math.round(site.min_height_m)}–${Math.round(site.max_height_m)} m AOD`);
+  chips.forEach(c=>{ const s=document.createElement('span'); s.className='chip'; s.textContent=c; stat.appendChild(s); });
+  document.getElementById('s-desc').textContent=site.desc||site.survives||'';
+  document.getElementById('s-hint').textContent='Drag to orbit · scroll to zoom · right-drag to pan. You are standing on the real hillside.';
+}
+
+let dragging=false; const ray=new THREE.Raycaster(), ndc=new THREE.Vector2();
+function addEvents(){
+  window.addEventListener('resize',()=>{ camera.aspect=innerW()/innerH(); camera.updateProjectionMatrix(); renderer.setSize(innerW(),innerH(),false); });
+  let downAt=null;
+  canvas.addEventListener('pointerdown',e=>{ downAt={x:e.clientX,y:e.clientY}; });
+  canvas.addEventListener('pointerup',e=>{ if(downAt && Math.abs(e.clientX-downAt.x)+Math.abs(e.clientY-downAt.y)<6) pick(e); downAt=null; });
+  document.getElementById('hscale').addEventListener('input',ev=>{ heightScale=Number(ev.target.value);
+    document.getElementById('hval').textContent=heightScale.toFixed(1); applyRelief(); });
+  document.getElementById('reset').addEventListener('click',()=>homeView(false));
+  document.getElementById('t-fort').addEventListener('change',e=>{ fortGroup.visible=e.target.checked; });
+  document.getElementById('t-wall').addEventListener('change',e=>{ wallGroup.visible=e.target.checked; });
+  document.getElementById('t-build').addEventListener('change',e=>{ if(buildingGroup) buildingGroup.visible=e.target.checked; });
+  document.getElementById('t-recon').addEventListener('change',e=>{ if(fortReconGroup) fortReconGroup.visible=e.target.checked; });
+  document.getElementById('t-extra').addEventListener('change',e=>{ const on=e.target.checked; if(extraGroup) extraGroup.visible=on;
+    const tb=document.getElementById('t-build'); if(buildingGroup) buildingGroup.visible=!on; if(tb) tb.checked=!on; });   // Roman world on → modern buildings off
+}
+function applyRelief(){
+  if(terrainMesh) terrainMesh.scale.y=heightScale;     // scale the heavy mesh, don't rebuild
+  if(buildingGroup) buildingGroup.scale.y=heightScale; // buildings track the slider too
+  if(fortReconGroup) fortReconGroup.scale.y=heightScale;
+  if(extraGroup) extraGroup.scale.y=heightScale;
+  // overlays read heightAt (which includes heightScale) — rebuild the light ones
+  if(wallGroup){ wallGroup.clear(); buildWallLine(); }
+  if(fortGroup){ buildFortFootprint(); }
+  // marker + label
+  for(let i=terrainGroup.children.length-1;i>=0;i--){ const c=terrainGroup.children[i];
+    if(c!==terrainMesh && c!==wallGroup && c!==fortGroup && c!==buildingGroup && c!==fortReconGroup && c!==extraGroup){ if(c.geometry)c.geometry.dispose(); terrainGroup.remove(c); } }
+  buildMarker();
+}
+function flyTo(tgt,dist,dirArr){ flyT={tgt:tgt.clone(),dist,dir:dirArr?new THREE.Vector3(...dirArr).normalize():null}; }
+function homeView(instant){
+  popup.style.display='none';
+  const {x,z}=toWorld(site.fort_e,site.fort_n), y=heightAt(site.fort_e,site.fort_n);
+  const tgt=new THREE.Vector3(x,y+6,z), dist=Math.max(worldWidth*0.42, worldDepth*0.5);
+  if(instant){ controls.target.copy(tgt); camera.position.copy(tgt).add(new THREE.Vector3(0,dist*0.72,dist*0.8)); controls.update(); }
+  else flyTo(tgt,dist,[0,0.6,0.8]);
+}
+function pick(e){
+  const r=canvas.getBoundingClientRect();
+  ndc.x=((e.clientX-r.left)/r.width)*2-1; ndc.y=-((e.clientY-r.top)/r.height)*2+1;
+  ray.setFromCamera(ndc,camera);
+  const hit=ray.intersectObjects(markers,false)[0];
+  if(hit){
+    popup.innerHTML=`<span class="x">×</span><h3>${site.roman}</h3>
+      <div class="mod">${site.modern} · ${(site.cat||'').replace(' (off-Wall)','').replace(' (north of Wall)','')}</div>
+      ${site.garrison?`<div class="row"><b>Garrison:</b> ${site.garrison}</div>`:''}
+      ${site.survives?`<div class="row"><b>Survives:</b> ${site.survives}</div>`:''}
+      ${site.museum?`<div class="row"><b>Visit:</b> ${site.museum}</div>`:''}
+      <div class="row" style="margin-top:7px"><a href="index.html#fort=${encodeURIComponent(site.modern)}" style="color:#e7b98a">◳ Reconstruct it in 3D →</a></div>`;
+    placePopup(e,r); return;
+  }
+  // building / outside-life pick — inverse-project the hit point into the fort frame, find the feature
+  const objs=[]; if(fortReconGroup&&fortReconGroup.visible) objs.push(fortReconGroup); if(extraGroup&&extraGroup.visible) objs.push(extraGroup); if(terrainMesh) objs.push(terrainMesh);
+  const fh=ray.intersectObjects(objs,true)[0];
+  if(fh && fortFrame && pickFeats.length){
+    const [x0,y0,x1,y1]=meta.bounds_bng;
+    const ee=x0+(fh.point.x/worldWidth+0.5)*(x1-x0), nn=y1-(fh.point.z/worldDepth+0.5)*(y1-y0);
+    const da=ee-fortFrame.cx, dn=nn-fortFrame.cy;
+    const a=da*fortFrame.u[0]+dn*fortFrame.u[1], b=da*fortFrame.v[0]+dn*fortFrame.v[1];
+    const f=pickFeats.find(F=> a>=F.a0&&a<=F.a1&&b>=F.b0&&b<=F.b1);
+    if(f){
+      const EVC={'E1':['#7ad07a','Excavated / official record'],'E1/E2':['#9bd06a','Excavated + interpreted'],'E1/E2/R':['#9bd06a','Excavated; upper form reconstructed'],'E2':['#d8be57','Official interpretation'],'E2/Q':['#dca657','Interpreted, partly open'],'Q':['#d59191','Possible / inferred']};
+      const ec=EVC[f.ev]||['#cdbfa0',f.ev];
+      popup.innerHTML=`<span class="x">×</span><h3>${f.label}</h3>
+        <div class="mod">${f.zone||''} <span style="margin-left:5px;padding:1px 6px;border-radius:4px;background:${ec[0]}22;color:${ec[0]};font-size:10px;border:1px solid ${ec[0]}55">${f.ev}</span></div>
+        <div class="row">${f.sum}</div>
+        <div class="row" style="opacity:.65;font-size:10px;margin-top:6px">Evidence: ${ec[1]}</div>`;
+      placePopup(e,r); return;
+    }
+  }
+  popup.style.display='none';
+}
+function placePopup(e,r){
+  popup.style.left=Math.min(e.clientX-r.left+14, r.width-310)+'px';
+  popup.style.top=Math.min(e.clientY-r.top+10, r.height-180)+'px';
+  popup.style.display='block';
+  popup.querySelector('.x').onclick=()=>popup.style.display='none';
+}
+
+/* ---- heading-strip compass (replicated exactly from the Ad Gefrin testflight) ---- */
+const CARDINALS=[{d:0,label:'N',cls:'lbl-N',tickCls:'tick-N'},{d:45,label:'NE',cls:'lbl-card',tickCls:'tick-major'},
+  {d:90,label:'E',cls:'lbl-card',tickCls:'tick-major'},{d:135,label:'SE',cls:'lbl-card',tickCls:'tick-major'},
+  {d:180,label:'S',cls:'lbl-card',tickCls:'tick-major'},{d:225,label:'SW',cls:'lbl-card',tickCls:'tick-major'},
+  {d:270,label:'W',cls:'lbl-card',tickCls:'tick-major'},{d:315,label:'NW',cls:'lbl-card',tickCls:'tick-major'}];
+const HALF_CARDINALS=[{d:22.5,label:'NNE'},{d:67.5,label:'ENE'},{d:112.5,label:'ESE'},{d:157.5,label:'SSE'},
+  {d:202.5,label:'SSW'},{d:247.5,label:'WSW'},{d:292.5,label:'WNW'},{d:337.5,label:'NNW'}];
+const PX_PER_DEG=4, CLIP_WIDTH=560;
+let compassStrip,compassDegEl,compassCardEl,compassCurrentBearing=0;
+function buildCompassStrip(){
+  compassStrip=document.getElementById('compass-strip'); compassDegEl=document.getElementById('compass-deg'); compassCardEl=document.getElementById('compass-card');
+  const ns='http://www.w3.org/2000/svg', frag=document.createDocumentFragment();
+  for(let cyc=-1;cyc<=1;cyc++){ const off=cyc*360;
+    for(let d=0;d<360;d+=10){ const x=(d+off+180)*PX_PER_DEG, c=CARDINALS.find(k=>k.d===d);
+      const t=document.createElementNS(ns,'line'); t.setAttribute('x1',x); t.setAttribute('x2',x); t.setAttribute('y1',0);
+      t.setAttribute('y2',c?14:8); t.setAttribute('class',c?c.tickCls:'tick-minor'); frag.appendChild(t); }
+    CARDINALS.forEach(c=>{ const tx=document.createElementNS(ns,'text'); tx.setAttribute('x',(c.d+off+180)*PX_PER_DEG); tx.setAttribute('y',28); tx.setAttribute('class',c.cls); tx.textContent=c.label; frag.appendChild(tx); });
+    HALF_CARDINALS.forEach(c=>{ const tx=document.createElementNS(ns,'text'); tx.setAttribute('x',(c.d+off+180)*PX_PER_DEG); tx.setAttribute('y',27); tx.setAttribute('class','lbl-half'); tx.textContent=c.label; frag.appendChild(tx); });
+  }
+  compassStrip.appendChild(frag);
+}
+function cameraBearingDeg(){ const dir=new THREE.Vector3(); camera.getWorldDirection(dir); let b=Math.atan2(dir.x,-dir.z)*180/Math.PI; if(b<0)b+=360; return b; }
+function cardinalFor(b){ const n=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW']; return n[Math.round(((b%360)+360)%360/22.5)%16]; }
+function updateCompass(){ if(!compassStrip) return; const target=cameraBearingDeg(); let delta=target-compassCurrentBearing;
+  while(delta>180)delta-=360; while(delta<-180)delta+=360; compassCurrentBearing=(compassCurrentBearing+delta*0.22+360)%360;
+  const clipW=Math.min(CLIP_WIDTH,Math.max(360,window.innerWidth-420)), tx=clipW/2-(compassCurrentBearing+180)*PX_PER_DEG;
+  compassStrip.style.transform=`translateX(${tx.toFixed(2)}px)`;
+  compassDegEl.textContent=String(Math.round(compassCurrentBearing)%360).padStart(3,'0')+'°'; compassCardEl.textContent=cardinalFor(compassCurrentBearing);
+}
+
+function animate(){ requestAnimationFrame(animate); updateCompass();
+  if(flyT){ controls.target.lerp(flyT.tgt,0.09);
+    const dir=flyT.dir||camera.position.clone().sub(controls.target).normalize();
+    const nd=THREE.MathUtils.lerp(camera.position.distanceTo(controls.target),flyT.dist,0.09);
+    camera.position.copy(controls.target).addScaledVector(dir,nd);
+    if(controls.target.distanceTo(flyT.tgt)<1.5) flyT=null;
+  }
+  controls.update(); renderer.render(scene,camera);
+}
+window._siteReady=true;
+</script>
+</body>
+</html>

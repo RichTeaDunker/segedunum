@@ -1,0 +1,42 @@
+{
+ "count": 17,
+ "note": "Native 1m EA LiDAR sections per fort",
+ "sites": [
+  {
+   "id": "segedunum",
+   "roman": "Segedunum",
+   "modern": "Wallsend",
+   "cat": "Wall fort",
+   "bounds_bng": [
+    429295.0,
+    565167.9745962155,
+    430795.0,
+    566900.0254037845
+   ],
+   "width": 1500,
+   "height": 1732,
+   "min_height_m": -9.111,
+   "max_height_m": 32.474,
+   "fort_e": 430045.04,
+   "fort_n": 566034.24,
+   "dim_a": 138.0,
+   "dim_b": 120.0,
+   "area": 4.1,
+   "garrison": "Cohors II Nerviorum (late 2C) -> Cohors IV Lingonum (3-4C)",
+   "survives": "Most fully excavated Wall fort; outlines on site, reconstructed bath-house, 35m viewing tower",
+   "museum": "Segedunum Roman Fort, Baths & Museum",
+   "desc": "Built c.122-127 AD as the eastern terminus guarding the Tyne; the most-excavated Wall fort, interpreted from a tower.",
+   "hex": {
+    "cx": 430045.0,
+    "cy": 566034.0,
+    "cr": 866.0254037844387,
+    "w": 1500.0,
+    "c": 0,
+    "r": 0
+   },
+   "aerial": true,
+   "topo": true
+  }
+ ],
+ "_note": "Trimmed to Segedunum only for the standalone product (full manifest lives in wall-interactive)."
+}

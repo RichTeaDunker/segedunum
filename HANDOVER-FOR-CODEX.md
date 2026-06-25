@@ -6,8 +6,8 @@
 A self-contained, static product of the **"Stand on the Site" Segedunum fort reconstruction** — the 1 m LiDAR terrain + museum-accurate fort recon at Wallsend. It was lifted **verbatim** out of `STRUCTURES/wall-interactive/site.html` and packaged to stand alone.
 
 - **Entry:** `index.html` → forces `site.html?site=segedunum`.
-- **The experience is LOCKED.** `site.html` is a byte-identical copy of the source (verified by SHA256 at extraction). Do **not** edit `site.html` or the Segedunum data. If a change is ever needed, branch a copy — keep this one pristine.
-- **Provenance:** source `wall-interactive/site.html`, SHA256 `93b7f0c026edf7ce1a516f077fa20304aa675bcee6acb848e44990eb583fe2a8`.
+- **The experience is LOCKED.** `site.html` began as a byte-identical copy of the source. Public-copy patch on 2026-06-25 changed only the floating-label renderer and the default outside-life toggle. Do **not** edit `site.html` or the Segedunum data further unless Richard asks.
+- **Provenance:** source `wall-interactive/site.html`, extraction SHA256 `93b7f0c026edf7ce1a516f077fa20304aa675bcee6acb848e44990eb583fe2a8`; current public-copy SHA256 `ef6ab2c9f286466d75b1fdb7d370ddb25617fffbc0769caa1cc1702d21ed3f28`.
 
 ## Layout
 ```

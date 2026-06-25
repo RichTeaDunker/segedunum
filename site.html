@@ -118,7 +118,7 @@
         <label><input type="checkbox" id="t-wall" checked> Wall line</label>
         <label><input type="checkbox" id="t-build"> Modern buildings</label>
         <label><input type="checkbox" id="t-recon" checked> Roman fort</label>
-        <label><input type="checkbox" id="t-extra" checked> Outside life</label>
+        <label><input type="checkbox" id="t-extra"> Outside life</label>
       </div>
       <div class="toggles" id="drapectl" style="display:none">Surface: <span id="drapebtns"></span></div>
       <div class="ctl">Relief ×<span id="hval">1.0</span>
@@ -534,11 +534,16 @@ function buildMarker(){
 }
 
 function textSprite(text,x,y,z,size,color){
-  const c=document.createElement('canvas'); c.width=512; c.height=128; const g=c.getContext('2d');
-  g.fillStyle=color||'#f1c76b'; g.font='bold 64px ui-sans-serif,system-ui,sans-serif'; g.textAlign='center'; g.textBaseline='middle';
-  g.fillText(text,256,68);
+  const fontPx=64, pad=44, h=128;
+  const measure=document.createElement('canvas').getContext('2d');
+  measure.font=`bold ${fontPx}px ui-sans-serif,system-ui,sans-serif`;
+  const w=Math.min(2048,Math.max(512,Math.ceil(measure.measureText(text).width+pad*2)));
+  const c=document.createElement('canvas'); c.width=w; c.height=h; const g=c.getContext('2d');
+  g.font=`bold ${fontPx}px ui-sans-serif,system-ui,sans-serif`; g.textAlign='center'; g.textBaseline='middle';
+  g.lineJoin='round'; g.miterLimit=2; g.strokeStyle='rgba(18,12,8,.72)'; g.lineWidth=9; g.strokeText(text,w/2,68);
+  g.fillStyle=color||'#f1c76b'; g.fillText(text,w/2,68);
   const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false}));
-  sp.position.set(x,y,z); sp.scale.set(size,size*0.25,1); return sp;
+  sp.position.set(x,y,z); sp.scale.set(size*(w/512),size*0.25,1); return sp;
 }
 
 function buildLegend(){
